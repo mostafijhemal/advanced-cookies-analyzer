@@ -1,0 +1,13 @@
+streamlit
+pandas
+matplotlib
+openpyxl
+xlsxwriter
+selenium
+fake-useragent
+pyarrow
+plotly
+pdfkit
+streamlit-aggrid
+networkx
+pyvis

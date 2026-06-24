@@ -1,0 +1,17 @@
+Virtual Environment
+venv/
+env/
+
+Python Cache
+pycache/
+*.pyc
+
+Database and Generated Outputs
+output/
+*.db
+*.sqlite3
+scheduler_config.json
+
+OS generated files
+.DS_Store
+Thumbs.db
