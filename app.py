@@ -36,6 +36,10 @@ import os
 
 # Load current config to show in UI
 default_unit, default_val, default_day = "Minutes", 1, "Monday"
+default_urls = []
+run_count = 0
+last_run = "Never"
+
 if os.path.exists("scheduler_config.json"):
     try:
         with open("scheduler_config.json", "r") as f:
@@ -43,7 +47,13 @@ if os.path.exists("scheduler_config.json"):
             default_unit = conf.get("unit", "minutes").capitalize()
             default_val = conf.get("interval", 1)
             default_day = conf.get("day", "monday").capitalize()
+            default_urls = conf.get("target_urls", [])
+            run_count = conf.get("run_count", 0)
+            last_run = conf.get("last_run", "Never")
     except: pass
+
+# --- NEW: Scheduler Status Display ---
+st.sidebar.info(f"🔄 **Total Auto Runs:** {run_count}\n\n🕒 **Last Scan:** {last_run}")
 
 sched_unit = st.sidebar.selectbox("Run Every:", ["Minutes", "Hours", "Daily", "Weekly"], index=["Minutes", "Hours", "Daily", "Weekly"].index(default_unit))
 sched_val = 1
@@ -58,11 +68,23 @@ elif sched_unit == "Weekly":
     sched_day = st.sidebar.selectbox("Day of the week:", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], index=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].index(default_day))
     sched_time = st.sidebar.time_input("Time of day:").strftime("%H:%M")
 
+# --- NEW: Target URLs for Scheduler ---
+sched_urls_input = st.sidebar.text_area("🌐 URLs to Auto-Scan (One per line):", value="\n".join(default_urls), placeholder="https://example.com\nhttps://daraz.com.bd")
+
 if st.sidebar.button("💾 Save Settings"):
-    config = {"unit": sched_unit.lower(), "interval": sched_val, "time": sched_time, "day": sched_day.lower()}
+    sched_urls = [u.strip() for u in sched_urls_input.splitlines() if u.strip()]
+    config = {
+        "unit": sched_unit.lower(), 
+        "interval": sched_val, 
+        "time": sched_time, 
+        "day": sched_day.lower(),
+        "target_urls": sched_urls,
+        "run_count": run_count,
+        "last_run": last_run
+    }
     with open("scheduler_config.json", "w") as f:
         json.dump(config, f)
-    st.sidebar.success(f"✅ Saved! Scheduler set to {sched_unit}.")
+    st.sidebar.success(f"✅ Saved! Scheduler set to run for {len(sched_urls)} sites.")
 
 # --- 3. Database Management ---
 st.sidebar.markdown("---")
@@ -103,25 +125,30 @@ def predict_purpose(row):
 if page == "📥 Input Websites":
     st.header("🔗 Enter Website URLs for Bulk Scanning")
     
-    # --- NEW: Custom Data Source Support (CSV/Excel) ---
-    st.markdown("#### 📂 Option 1: Upload CSV or Excel File")
-    uploaded_file = st.file_uploader("Upload a file containing URLs (URLs should be in the first column)", type=["csv", "xlsx"])
+    # --- NEW: Custom Data Source Support (CSV/Excel/TXT) ---
+    st.markdown("#### 📂 Option 1: Upload CSV, Excel, or TXT File")
+    uploaded_file = st.file_uploader("Upload a file containing URLs (TXT should have one URL per line)", type=["csv", "xlsx", "txt"])
     file_urls = []
     
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.csv'):
                 df_upload = pd.read_csv(uploaded_file)
+                first_col = df_upload.columns[0]
+                file_urls = df_upload[first_col].dropna().astype(str).tolist()
+            elif uploaded_file.name.endswith('.txt'):
+                # Read standard text file line by line
+                string_data = uploaded_file.getvalue().decode("utf-8")
+                file_urls = [url.strip() for url in string_data.splitlines() if url.strip()]
             else:
                 df_upload = pd.read_excel(uploaded_file)
+                first_col = df_upload.columns[0]
+                file_urls = df_upload[first_col].dropna().astype(str).tolist()
             
-            # URL Collections from the first column
-            first_col = df_upload.columns[0]
-            file_urls = df_upload[first_col].dropna().astype(str).tolist()
             st.success(f"✅ Successfully extracted {len(file_urls)} URLs from the uploaded file.")
         except Exception as e:
             st.error(f"Error reading file: {e}")
-
+    
     st.markdown("#### ✍️ Option 2: Manual Input")
     website_input = st.text_area("Type or paste Website URLs manually (one per line)", height=150, placeholder="https://example.com\nhttps://cnn.com")
 
@@ -417,7 +444,6 @@ elif page == "📊 Analytics Dashboard":
         
         if len(date_range) == 2:
             start_date, end_date = date_range
-            # Filter Dataframe by selected dates
             export_df = df[(df['ScanDate'].dt.date >= start_date) & (df['ScanDate'].dt.date <= end_date)]
         else:
             export_df = df.copy()
@@ -426,46 +452,91 @@ elif page == "📊 Analytics Dashboard":
         st.info(f"📊 Ready to export {len(export_df)} records based on your selected date range.")
         
         if not export_df.empty:
+            # Calculate payload if not exists
+            if 'PayloadSizeBytes' not in export_df.columns:
+                export_df['PayloadSizeBytes'] = export_df['Value'].apply(lambda x: len(str(x).encode('utf-8')) if pd.notnull(x) else 0)
+
             col1, col2 = st.columns(2)
             
             with col1:
-                # Multi-Sheet Excel Export (using export_df)
+                # Multi-Sheet Excel Export (Complete Data)
                 excel_buffer = BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                    # 1. Summary
                     summary_df = pd.DataFrame({
-                        "Metric": ["Total Cookies", "3rd-Party Trackers", "High Risk Cookies", "Secure Cookies"],
-                        "Value": [len(export_df), int(export_df['ThirdParty'].sum()), len(export_df[export_df['RiskLevel'] == 'High Risk']), int(export_df['Secure'].sum())]
+                        "Metric": ["Total Cookies", "3rd-Party Trackers", "High Risk Cookies", "Secure Cookies", "GDPR Violations", "Heavy Payloads (>1KB)"],
+                        "Value": [
+                            len(export_df), 
+                            int(export_df['ThirdParty'].sum()), 
+                            len(export_df[export_df['RiskLevel'] == 'High Risk']), 
+                            int(export_df['Secure'].sum()),
+                            len(export_df[(export_df['ThirdParty'] == True) & (export_df['PredictedPurpose'].isin(["🎯 Targeted Advertising", "📊 Analytics & Tracking"]))]),
+                            len(export_df[export_df['PayloadSizeBytes'] > 1024])
+                        ]
                     })
-                    summary_df.to_excel(writer, sheet_name='Dashboard Summary', index=False)
-                    export_df[export_df['RiskLevel'] == 'High Risk'].to_excel(writer, sheet_name='High Risk Cookies', index=False)
-                    export_df.to_excel(writer, sheet_name='Raw Data', index=False)
+                    summary_df.to_excel(writer, sheet_name='1. Dashboard Summary', index=False)
+                    
+                    # 2. Cookie Purposes
+                    purpose_df = export_df['PredictedPurpose'].value_counts().reset_index()
+                    purpose_df.columns = ['Predicted Purpose', 'Total Count']
+                    purpose_df.to_excel(writer, sheet_name='2. Purpose Breakdown', index=False)
+
+                    # 3. High Risk
+                    export_df[export_df['RiskLevel'] == 'High Risk'].to_excel(writer, sheet_name='3. High Risk Cookies', index=False)
+                    
+                    # 4. GDPR Violations
+                    gdpr_df = export_df[(export_df['ThirdParty'] == True) & (export_df['PredictedPurpose'].isin(["🎯 Targeted Advertising", "📊 Analytics & Tracking"]))]
+                    gdpr_df.to_excel(writer, sheet_name='4. GDPR Violations', index=False)
+                    
+                    # 5. Heavy Payloads
+                    export_df[export_df['PayloadSizeBytes'] > 1024].to_excel(writer, sheet_name='5. Heavy Payloads', index=False)
+
+                    # 6. Raw Data
+                    export_df.to_excel(writer, sheet_name='6. All Raw Data', index=False)
                 
                 st.download_button(
-                    label="📊 Download Filtered Excel Report",
+                    label="📊 Download Comprehensive Excel Report",
                     data=excel_buffer.getvalue(),
-                    file_name=f"Historical_Cookie_Report_{start_date}_to_{end_date}.xlsx",
+                    file_name=f"Comprehensive_Cookie_Report_{start_date}_to_{end_date}.xlsx",
                     mime="application/vnd.ms-excel"
                 )
 
             with col2:
-                # Automated PDF Generation (using export_df)
-                if st.button("📄 Generate Executive PDF Report"):
+                # Automated PDF Generation (Complete Executive Report)
+                if st.button("📄 Generate Comprehensive PDF Report"):
                     with st.spinner("Generating PDF... Please wait."):
+                        
+                        # Prepare HTML Tables
+                        high_risk_df = export_df[export_df['RiskLevel'] == 'High Risk']
+                        high_risk_html = high_risk_df[['Website', 'Name', 'Domain', 'PredictedPurpose']].head(10).to_html(index=False) if not high_risk_df.empty else "<p>No High Risk cookies found.</p>"
+                        
+                        top_trackers_html = export_df[export_df['ThirdParty']]['Domain'].value_counts().head(5).reset_index().rename(columns=dict(count='Total Injections', Domain='Tracker Domain')).to_html(index=False)
+                        
+                        purpose_html = export_df['PredictedPurpose'].value_counts().reset_index().rename(columns=dict(count='Total Count', PredictedPurpose='Category')).to_html(index=False)
+                        
+                        gdpr_df = export_df[(export_df['ThirdParty'] == True) & (export_df['PredictedPurpose'].isin(["🎯 Targeted Advertising", "📊 Analytics & Tracking"]))]
+                        gdpr_html = gdpr_df[['Website', 'Name', 'Domain', 'PredictedPurpose']].head(10).to_html(index=False) if not gdpr_df.empty else "<p>No GDPR Violations found.</p>"
+
+                        payload_df = export_df.nlargest(10, 'PayloadSizeBytes')[['Website', 'Name', 'Domain', 'PayloadSizeBytes']]
+                        payload_html = payload_df.to_html(index=False) if not payload_df.empty else "<p>No payload data available.</p>"
+
+                        # Build HTML Document
                         html_content = f"""
                         <html>
                         <head>
                             <style>
                                 body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; }}
                                 h1 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
-                                h2 {{ color: #e74c3c; margin-top: 30px; }}
+                                h2 {{ color: #16a085; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
                                 .summary-box {{ background-color: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; font-size: 16px; }}
                                 table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }}
                                 th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
                                 th {{ background-color: #34495e; color: white; }}
+                                tr:nth-child(even) {{ background-color: #f9f9f9; }}
                             </style>
                         </head>
                         <body>
-                            <h1>🛡️ Historical Privacy & Security Audit Report</h1>
+                            <h1>Comprehensive Privacy & Security Audit Report</h1>
                             <p><b>Data Date Range:</b> {start_date} to {end_date}</p>
                             
                             <div class="summary-box">
@@ -473,27 +544,41 @@ elif page == "📊 Analytics Dashboard":
                                 <ul>
                                     <li><b>Total Cookies Analyzed:</b> {len(export_df)}</li>
                                     <li><b>3rd-Party Trackers:</b> {int(export_df['ThirdParty'].sum())}</li>
-                                    <li><b>High Risk Cookies:</b> {len(export_df[export_df['RiskLevel'] == 'High Risk'])}</li>
+                                    <li><b>High Risk Cookies (Persistent):</b> {len(high_risk_df)}</li>
+                                    <li><b>GDPR Violations Detected:</b> {len(gdpr_df)}</li>
                                 </ul>
                             </div>
 
-                            <h2>High Risk & Vulnerable Cookies</h2>
-                            {export_df[export_df['RiskLevel'] == 'High Risk'][['Website', 'Name', 'Domain', 'PredictedPurpose']].head(10).to_html(index=False) if not export_df[export_df['RiskLevel'] == 'High Risk'].empty else "<p>No High Risk cookies found.</p>"}
+                            <h2>1. Cookie Purpose Breakdown</h2>
+                            {purpose_html}
+
+                            <h2>2. Top Cross-Site Trackers</h2>
+                            {top_trackers_html}
                             
-                            <h2>Top Cross-Site Trackers</h2>
-                            {export_df[export_df['ThirdParty']]['Domain'].value_counts().head(5).reset_index().rename(columns=dict(count='Total Injections', Domain='Tracker Domain')).to_html(index=False)}
+                            <h2>3. GDPR Consent Violations (Top 10)</h2>
+                            <p style="font-size: 11px; color: #666;">Marketing trackers injected without user consent.</p>
+                            {gdpr_html}
+
+                            <h2>4. High Risk & Vulnerable Cookies (Top 10)</h2>
+                            <p style="font-size: 11px; color: #666;">Third-party persistent cookies lasting longer than 1 year.</p>
+                            {high_risk_html}
+
+                            <h2>5. Data Exfiltration Risk: Largest Payloads (Top 10)</h2>
+                            <p style="font-size: 11px; color: #666;">Cookies storing unusually large amounts of data (in Bytes).</p>
+                            {payload_html}
                         </body>
                         </html>
                         """
                         
                         pdf_file_path = "output/Executive_Audit_Report.pdf"
                         try:
-                            pdfkit.from_string(html_content, pdf_file_path)
+                            options = {'encoding': "UTF-8", 'enable-local-file-access': None}
+                            pdfkit.from_string(html_content, pdf_file_path, options=options)
                             with open(pdf_file_path, "rb") as f:
                                 b64 = base64.b64encode(f.read()).decode("utf-8")
-                                href = f'<a href="data:application/pdf;base64,{b64}" download="Historical_Audit_{start_date}_to_{end_date}.pdf">📥 Click Here to Download PDF Report</a>'
+                                href = f'<a href="data:application/pdf;base64,{b64}" download="Comprehensive_Audit_{start_date}_to_{end_date}.pdf">📥 Click Here to Download PDF Report</a>'
                                 st.markdown(href, unsafe_allow_html=True)
-                                st.success("✅ PDF generated successfully!")
+                                st.success("✅ Comprehensive PDF generated successfully!")
                         except Exception as e:
                             st.error(f"PDF generation failed: {e}")
 
