@@ -1,119 +1,127 @@
-🍪 Advanced Website Cookies Analyzer
+<div align="center">
 
-An enterprise-grade, microservices-based web application designed to automatically scan, analyze, and audit website cookies. It serves as a comprehensive Cybersecurity, Privacy (GDPR/CCPA), and Data Exfiltration Auditing Tool.
+# 🍪 Advanced Cookies Analyzer
 
-Built with a Data-as-a-Service (DaaS) architecture, it includes a centralized interactive dashboard, a standalone REST API, and a dynamic background scheduler.
+<p align="center">
+  <b>A comprehensive, automated web-based tool and security scanner for scraping, inspecting, and analyzing browser cookies.</b>
+</p>
 
-🚀 Key Features
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version">
+  <img src="https://img.shields.io/badge/Selenium-WebDriver-43B02A?style=flat-square&logo=selenium&logoColor=white" alt="Selenium">
+  <img src="https://img.shields.io/badge/Security-Audit-orange?style=flat-square" alt="Security">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License">
+</p>
 
-🕵️ Intelligent Cookie Scraping: Uses Headless Selenium with Fake UserAgents to bypass bot detection and collect cookies securely. Supports single URL or Bulk Uploads (CSV/Excel).
+</div>
 
-🤖 AI-Powered Purpose Prediction: Automatically categorizes cookies (e.g., Analytics, Targeted Advertising, Essential) based on heuristic algorithms.
+<br>
 
-🛡️ Automated Security & GDPR Audit: * Session Hijacking Alert: Flags essential cookies missing Secure or HttpOnly flags.
+<details>
+  <summary><b>✨ Table of Contents</b></summary>
+  <br>
+  <ul>
+    <li><a href="#-about-the-project">About the Project</a></li>
+    <li><a href="#-key-features--modules">Key Features & Modules</a></li>
+    <li><a href="#-technology-stack">Technology Stack</a></li>
+    <li><a href="#-installation--setup">Installation & Setup</a></li>
+    <li><a href="#-usage-guide">Usage Guide</a></li>
+    <li><a href="#-contributing--authors">Contributing & Authors</a></li>
+  </ul>
+</details>
 
-Consent Violation: Detects marketing trackers injected without user consent.
+---
 
-💾 Payload & Data Exfiltration Analysis: Flags unusually large cookies (>1 KB) that might contain entire user profiles or tracking tokens.
+## 🚀 About the Project
 
-🕸️ Interactive Network Graph: Visualizes cross-site tracking relationships between domains and third-party trackers using dynamic clustering (pyvis & networkx).
+**Advanced Cookies Analyzer** is designed to audit, extract, and analyze HTTP cookies across web targets. In modern web development and cybersecurity, tracking cookies, insecure flags, and third-party intrusions pose severe privacy and compliance risks. This tool automates the extraction and categorization of cookies, checks security constraints (such as `Secure`, `HttpOnly`, and `SameSite` configurations), and helps evaluate web security posture efficiently.
 
-📊 Date-to-Date Comparison & Anomaly Detection: Compares historical scans to detect new trackers added or removed over time.
+---
 
-🗑️ Easy Data Management: Built-in "Clear Historical Data" functionality to reset the database with a single click for fresh auditing and testing environments.
+## 🛠️ Key Features & Modules
 
-📁 Professional Export: Generates multi-sheet Excel raw data files and Executive PDF Reports for management review.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>1. Automated Cookie Scraper</h3>
+      <ul>
+        <li><b>Dynamic Extraction:</b> Leverages automated browser drivers to capture runtime cookies.</li>
+        <li><b>Batch Target Processing:</b> Reads URLs directly from configuration and text files.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>2. Security & Compliance Analysis</h3>
+      <ul>
+        <li><b>Flag Inspection:</b> Identifies missing security attributes like <code>HttpOnly</code> and <code>Secure</code>.</li>
+        <li><b>Tracker Detection:</b> Cross-references discovered cookies against known tracking lists.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" colspan="2">
+      <h3>3. Structured Reporting</h3>
+      <ul>
+        <li><b>Database Export:</b> Compiles scraped cookie data into structured spreadsheet formats (`.xlsx` / CSV).</li>
+        <li><b>TLS/Security Verification:</b> Inspects associated transport layer security configurations.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-🏗️ System Architecture (Microservices)
+---
 
-This project is decoupled into independent microservices for maximum scalability:
+## 🧰 Technology Stack
 
-Frontend UI (app.py): An intuitive Streamlit dashboard for visual analytics and system configuration.
+* **Language:** Python
+* **Automation & Scraping:** Selenium WebDriver, Requests
+* **Data Processing:** Pandas, OpenPyXL
+* **Reporting & CLI:** PrettyTable
 
-API Server (api.py): A FastAPI backend offering RESTful endpoints, allowing third-party developers to integrate the scanning engine into their own apps.
+---
 
-Dynamic Scheduler (scheduler.py): A background worker that listens for UI commands and runs automated bulk audits (Minutes, Hours, Daily, Weekly).
+## ⚙️ Installation & Setup
 
-Central Orchestrator (run_all.py): A master script that spins up the UI, API, and Scheduler simultaneously with a single command.
+Follow these steps to set up and run the analyzer locally:
 
-🎯 Target Audience & Use Cases
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/mostafijhemal/advanced-cookies-analyzer.git
+   cd advanced-cookies-analyzer
+   ```
 
-Cybersecurity Analysts & Pen Testers: To identify session hijacking vulnerabilities and unusual data exfiltration payloads.
+2. **Install Dependencies:**
+   Ensure you have Python installed, then install the required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Data Privacy Officers (DPOs): To automate GDPR/CCPA compliance audits and generate executive PDF reports for management.
+3. **Configure Target URLs:**
+   Add your target domains or URLs into the designated input text file (e.g., `URLS.txt`).
 
-Software Developers: To utilize the REST API (api.py) as a plug-and-play microservice in their own cybersecurity products.
+---
 
-Digital Marketing & SEO Agencies: To reverse-engineer competitor websites and analyze their third-party advertising stacks.
+## 🚀 Usage Guide
 
-⚙️ Installation & Setup
+Run the primary cookie scraping and analysis script:
+```bash
+python cookie-scraper.py
+```
 
-Prerequisites
+* **Data Output:** Scraped cookie records and security metrics will be compiled and saved into the output database spreadsheet (`cookie-db.xlsx`).
 
-Python 3.9 or higher
+---
 
-Chrome Browser (for Selenium WebDriver)
+## 👥 Authors & Contributors
 
-wkhtmltopdf (Required for PDF generation. Windows users must download and add it to their system PATH).
+<div align="center">
 
-Step-by-Step Guide
+| Name | Role / Profile |
+| :--- | :--- |
+| **Md. Mostafijur Rahman** | Author & Maintainer — [GitHub Profile](https://github.com/mostafijhemal) |
 
-Clone the repository:
+<p><b>Department of Computer Science and Engineering</b><br>
+JahangirNagar University, Dhaka, Bangladesh</p>
 
-git clone [https://github.com/yourusername/advanced-cookies-analyzer.git](https://github.com/yourusername/advanced-cookies-analyzer.git)
-cd advanced-cookies-analyzer
+<p><b>Supervisor: Md. Rafsan Jani</b> (Associate Professor, Department of CSE)</p>
 
-
-Create and activate a virtual environment:
-
-python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On Mac/Linux:
-source venv/bin/activate
-
-
-Install the required dependencies:
-
-pip install -r requirements.txt
-pip install fastapi uvicorn pydantic schedule
-
-
-Run the Complete System (Master Script):
-
-python run_all.py
-
-
-This single command will start the API on port 8000, the background Scheduler, and open the Streamlit UI on port 8501.
-
-🌐 API Usage Example (DaaS)
-
-Once the system is running, the API interactive documentation is available at: http://127.0.0.1:8000/docs
-
-Trigger a Scan via Python:
-
-import requests
-
-api_url = "[http://127.0.0.1:8000/api/v1/scan](http://127.0.0.1:8000/api/v1/scan)"
-payload = {"url": "[https://example.com](https://example.com)"}
-
-response = requests.post(api_url, json=payload)
-print(response.json())
-
-
-📂 Project Structure
-
-├── app.py                  # Main Streamlit User Interface
-├── api.py                  # FastAPI Backend Server
-├── scheduler.py            # Dynamic Background Task Runner
-├── run_all.py              # Central Orchestrator Script
-├── cookie_collector.py     # Selenium Headless Scraping Engine
-├── db_handler.py           # SQLite Database Operations
-├── requirements.txt        # Python Dependencies
-├── scheduler_config.json   # Auto-generated config for Scheduler
-└── output/                 # Directory for DB, HTML Graphs, and PDFs
-
-
-⚠️ Disclaimer
-
-This tool is developed for academic and ethical auditing purposes only. Users must ensure they have permission to scan and audit the target websites. The developer is not responsible for any misuse of this application.
+</div>
